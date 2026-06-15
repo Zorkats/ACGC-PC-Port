@@ -521,7 +521,10 @@ static int aNPC_setupActor_proc(GAME_PLAY* play, mActor_name_t name, s8 idx, int
 
 #ifndef aNPC_NPC2
 #ifdef TARGET_PC
-#define aNPC_ACTOR_CLASS_SLOT_SIZE 0xA50
+/* PC slot must absorb both the dt-added fields and 64-bit pointer widening,
+ * which stack on the 64-bit build. Validated at compile time by the
+ * aNPC_pc_actor_slot_backing_too_small static assert against sizeof(NPC_ACTOR). */
+#define aNPC_ACTOR_CLASS_SLOT_SIZE 0xD00
 #else
 #define aNPC_ACTOR_CLASS_SLOT_SIZE 0x9D0
 #endif
@@ -700,7 +703,9 @@ static void aNPC_dma_draw_data_proc(aNPC_draw_data_c* draw_data_p, mActor_name_t
 #ifndef aNPC_NPC2
 typedef struct {
     u64 align;
-    /* PC dt fields grew NPC_ACTOR past the original GC 0x9D0 slot. */
+    /* PC dt fields AND 64-bit pointer widening grew NPC_ACTOR past the
+     * original GC 0x9D0 slot. Backing size is validated below by the
+     * aNPC_pc_actor_slot_backing_too_small static assert. */
     u8 buf[aNPC_ACTOR_CLASS_SLOT_SIZE];
 } aNPC_actor_class_overlay_c;
 
@@ -741,7 +746,7 @@ static void aNPC_keep_actor_class(void) {
     int i;
 
     for (i = 0; i < 9; i++) {
-        *actor = (NPC_ACTOR*)ALIGN_NEXT((u32)aNPC_n_actor_cl_tbl[i].buf, 16);
+        *actor = (NPC_ACTOR*)ALIGN_NEXT((uintptr_t)aNPC_n_actor_cl_tbl[i].buf, 16);
         *used = FALSE;
 
         actor++;
