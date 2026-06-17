@@ -23,6 +23,8 @@
 #define PAD_STICK_OUTER     0.95f   /* saturation: reach max before the physical rim */
 #define SDL_AXIS_MAX        32767.0f
 
+extern int g_pc_verbose;
+
 static SDL_GameController* g_controller = NULL;
 /* Instance id of the open controller, used to match SDL_CONTROLLERDEVICEREMOVED
  * events (whose `which` is an instance id, not a device index). -1 = none. */
@@ -39,6 +41,10 @@ static void pad_open(int idx) {
     g_controller = c;
     SDL_Joystick* js = SDL_GameControllerGetJoystick(c);
     g_controller_id = js ? SDL_JoystickInstanceID(js) : -1;
+    if (g_pc_verbose) {
+        printf("[PAD] opened controller idx=%d instance=%d name=%s\n",
+               idx, (int)g_controller_id, SDL_GameControllerName(c));
+    }
 }
 
 /* Scan every joystick and open the first game controller found. */
@@ -53,6 +59,7 @@ static void pad_close(void) {
     if (g_controller) {
         SDL_GameControllerClose(g_controller);
         g_controller = NULL;
+        if (g_pc_verbose) printf("[PAD] closed controller instance=%d\n", (int)g_controller_id);
     }
     g_controller_id = -1;
 }
@@ -117,6 +124,7 @@ BOOL PADInit(void) {
 /* SDL_CONTROLLERDEVICEADDED hook (event.cdevice.which is a device index).
  * Fires when a pad is plugged in or re-enumerates after a sleep/resume. */
 void pc_pad_device_added(int device_index) {
+    if (g_pc_verbose) printf("[PAD] event DEVICE_ADDED index=%d\n", device_index);
     pad_open(device_index);
 }
 
@@ -124,6 +132,10 @@ void pc_pad_device_added(int device_index) {
  * If our active pad went away, drop it and try to fall back to any other
  * controller still connected (e.g. dock vs handheld). */
 void pc_pad_device_removed(int instance_id) {
+    if (g_pc_verbose) {
+        printf("[PAD] event DEVICE_REMOVED instance=%d (ours=%d)\n",
+               instance_id, (int)g_controller_id);
+    }
     if (g_controller && instance_id == g_controller_id) {
         pad_close();
         pad_open_first();
